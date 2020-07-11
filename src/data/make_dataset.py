@@ -1,85 +1,152 @@
 # -*- coding: utf-8 -*-
 import os
-import click
-import logging
 from pathlib import Path
 import json
-from dotenv import find_dotenv, load_dotenv
 
-#data\raw\Gurbir\message_1.json
-#data\interim
+class data():
+    """Returns batch data for a single facebook user in a messenger chat.
 
-@click.command()
-@click.argument('input_filepath', type=click.Path(exists=True), default = 'data/raw')
-@click.option('--out', type=click.Path(), default = 'data/processed', help = 'output filepath')
-@click.option('--interim', type=click.Path(), default='data/interim', help = 'interim filepath')
-@click.option('--list', is_flag = True, help = 'list files in directory' )
-def main(input_filepath, out, interim, list):
-    """ Runs data processing scripts to turn raw data from (../raw) into
-        cleaned data ready to be analyzed (saved in ../processed).
-        Intermediate combined JSON files are put into ../interim
-    """
-    logger = logging.getLogger(__name__)
-    logger.info('making data set from raw data')
-
-    if list:
-        for file in os.listdir(input_filepath):
-            click.echo(file)
-        return
+    Attributes:
+        friend (str): sender_name of persons messsenger data.
+        char (tuple): all characters appearing in text
+        int_to_char (dict): integer to character encoding dictionary
+        char_to_int (dict): character to integer encoding dicitonary
+        data_loc (str): processed data location
+        encoded (array): encoded data
     
+    Arguments:
+        input_filepath (str): input filepath to raw messenger data.
+        output_filepath (str): Destination of processed data
+    """
+    def __init__(self, input_filepath = None, output_filepath = 'data/processed'):
+        
+        self.friend = None
+        self.chars = None
+        self.int_to_char = None
+        self.char_to_int = None
+        self.data_loc = None
+        self.encoded = None
 
-    # Retrieve message files and combine into single dict, write to intermin file
-    if len([path for path in Path(input_filepath).glob('message_*.JSON')]) == 0:
-        click.echo(f'No message files found in {input_filepath}')
-        return
+        if input_filepath:
+            message_files = Path(input_filepath).glob('message_*.JSON')
+            messages = []
+            for message_file in message_files:
+                json_file = open(message_file, "r", encoding='utf-8')
+                # jdict = json.load(json_file)  ## TEST TO SEE IF MODIFYING WORKS
+                # messages += jdict['messages']
+                messages += json.load(json_file)['messages']                
+                json_file.close()
 
-    message_files = Path(input_filepath).glob('message_*.JSON')
-    messages = []
-    for message_file in message_files:
-        json_file = open(message_file, "r", encoding='utf-8')
-        jdict = json.load(json_file)
-        messages += jdict['messages']
-        json_file.close()
+            # Create dictionary of participants continuous chat 
+            message_content_dict = {}
 
-    message_dict = jdict.copy()
-    message_dict['messages'] = messages
+            for message in messages:
+                if 'content' in message:
+                    message_content_dict[message['sender_name']] = message_content_dict.get(message['sender_name'], '') + message['content'].encode('latin1').decode('utf8') + '\n'
 
-    path = Path(interim) / input_filepath.split('/')[-1]
-    path.mkdir()
+            # write data to file, separated by participants
+            path = Path(out) / input_filepath.split('/')[-1]
+            path.mkdir()
 
-    with open(path / 'messages.json', "x") as interim_file:
-        json.dump(message_dict, interim_file)
+            for participant in message_content_dict:
+                with open(path / participant + '_messages.txt', 'w') as out_file:
+                    out_file.write(message_content_dict[participant])
 
-    logger.info('Json files combined in data/interim')
+            self.data_loc = path
+        
+        
+    def encode(self, input_filepath):
+         """ encodes data
+
+        Args:
+            input_filepath (str): message data chosen. Must be continuous text
+
+        Returns:
+            encoded (str): encoded text
+
+        """
+        try:
+            f = open(path, 'r')
+            text = f.read()
+            f.close()
+        except:
+            if self.data_loc:
+                print(f'no / incorrect file found at {input_filepath}\nTry input_filepath =\n')
+                for path in Path(self.data_loc):
+                    print(path)
+            else:
+                print(f'no / incorrect file found at {input_filepath}'')
+            return None
+
+        self.chars = tuple(set(text))
+        self.int_to_char = dict(enumerate(chars))
+        self.char_to_int = {ch: ii for ii, ch in int_to_char.items()}
+
+        self.encoded = np.array([char_to_int[ch] for ch in text])
+        return self.encoded
 
 
-    # Get continuous chat from message content, save to 
-    message_content_dict = {}
+    def one_hot_encode(self, arr):
+        """One hot encodes array
 
-    for message in messages:
-        if 'content' in message:
-            message_content_dict[message['sender_name']] = message_content_dict.get(message['sender_name'], '') + message['content'].encode('latin1').decode('utf8') + '\n'
+        Args:
+            arr (array): Array to be encoded, must be and integer array with values <= len(self.chars)
+
+        Returns:
+            one_hot (array): one hot encoded array
+        """
+
+        # Initialize the the encoded array
+        one_hot = np.zeros((arr.size, len(self.chars)), dtype=np.float32)
+
+        # Fill the appropriate elements with ones
+        one_hot[np.arange(one_hot.shape[0]), arr.flatten()] = 1.
+        
+        # Finally reshape it to get back to the original array
+        one_hot = one_hot.reshape((*arr.shape, len(self.chars)))
+        
+        return one_hot
 
 
-    path = Path(out) / input_filepath.split('/')[-1]
-    path.mkdir()
+    def get_batches(self, batch_size, seq_length, one_hot = True):
+        """ Generates batch data
 
-    with open(path / 'message_contents.json', "x") as out_file:
-        json.dump(message_content_dict, out_file)
+        Args:
+            batch_size (int): Batch size, the number of sequences per batch
+            seq_length (int): Number of encoded chars in a sequence
+            one_hot (bool): returns onehot encoded data
 
-    logger.info('message contents extracted')
 
+        Yields:
+            x (array): batch_size x seq_length output features
+            y (array): batch_size x seq_length output targets (features shifted one step forward)
 
+        """
 
-if __name__ == '__main__':
-    log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    logging.basicConfig(level=logging.INFO, format=log_fmt)
+        if not self.encoded:
+            print('No data!\nData must be chosen and encoded using encode()')
+            return None
+        
+        batch_size_total = batch_size * seq_length
+        n_batches = len(self.encoded)//batch_size_total
 
-    # not used in this stub but often useful for finding various files
-    project_dir = Path(__file__).resolve().parents[2]
+        # Keep only enough characters to make full batches
+        arr = self.encoded[:n_batches * batch_size_total]
+        # Reshape into batch_size rows
+        arr = arr.reshape((batch_size, -1))
 
-    # find .env automagically by walking up directories until it's found, then
-    # load up the .env entries as environment variables
-    load_dotenv(find_dotenv())
+        # iterate through the array, one sequence at a time
+        for n in range(0, arr.shape[1], seq_length):
+            # The features
+            x = arr[:, n:n+seq_length]
+            # The targets, shifted by one
+            y = np.zeros_like(x)
+            try:
+                y[:, :-1], y[:, -1] = x[:, 1:], arr[:, n+seq_length]
+            except IndexError:
+                y[:, :-1], y[:, -1] = x[:, 1:], arr[:, 0]
 
-    main()
+            if one_hot:
+                yield self.one_hot_encode(x), self.one_hot_encode(y) 
+            else:
+                yield x, y
