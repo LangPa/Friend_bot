@@ -2,6 +2,8 @@
 import os
 from pathlib import Path
 import json
+import numpy as np
+import io
 
 class data():
     """Returns batch data for a single facebook user in a messenger chat.
@@ -45,44 +47,44 @@ class data():
                     message_content_dict[message['sender_name']] = message_content_dict.get(message['sender_name'], '') + message['content'].encode('latin1').decode('utf8') + '\n'
 
             # write data to file, separated by participants
-            path = Path(out) / input_filepath.split('/')[-1]
-            path.mkdir()
+            path = Path(output_filepath) / input_filepath.split('/')[-1]
+            if not os.path.exists(path):
+                path.mkdir()
 
             for participant in message_content_dict:
-                with open(path / participant + '_messages.txt', 'w') as out_file:
+                with io.open(str(path / participant.replace(' ','_')) + '_messages.txt', 'w', encoding = 'utf-8') as out_file:
                     out_file.write(message_content_dict[participant])
 
             self.data_loc = path
         
         
-    def encode(self, input_filepath):
-         """ encodes data
+    def encode(self, input_filepath = ''):
+        """ encodes data
 
         Args:
             input_filepath (str): message data chosen. Must be continuous text
 
         Returns:
             encoded (str): encoded text
-
         """
         try:
-            f = open(path, 'r')
+            f = io.open(input_filepath, 'r', encoding='utf-8')
             text = f.read()
             f.close()
         except:
             if self.data_loc:
-                print(f'no / incorrect file found at {input_filepath}\nTry input_filepath =\n')
-                for path in Path(self.data_loc):
-                    print(path)
+                print(f'no / incorrect file found at {input_filepath}\nTry input_filepath =')
+                for path in os.listdir(self.data_loc):
+                    print(self.data_loc / path)
             else:
-                print(f'no / incorrect file found at {input_filepath}'')
+                print('Please enter a input filepath in the data_loc attribute')
             return None
 
         self.chars = tuple(set(text))
-        self.int_to_char = dict(enumerate(chars))
-        self.char_to_int = {ch: ii for ii, ch in int_to_char.items()}
+        self.int_to_char = dict(enumerate(self.chars))
+        self.char_to_int = {ch: ii for ii, ch in self.int_to_char.items()}
 
-        self.encoded = np.array([char_to_int[ch] for ch in text])
+        self.encoded = np.array([self.char_to_int[ch] for ch in text])
         return self.encoded
 
 
@@ -122,13 +124,12 @@ class data():
             y (array): batch_size x seq_length output targets (features shifted one step forward)
 
         """
-
-        if not self.encoded:
+        batch_size_total = batch_size * seq_length
+        try:
+            n_batches = len(self.encoded)//batch_size_total
+        except TypeError:
             print('No data!\nData must be chosen and encoded using encode()')
             return None
-        
-        batch_size_total = batch_size * seq_length
-        n_batches = len(self.encoded)//batch_size_total
 
         # Keep only enough characters to make full batches
         arr = self.encoded[:n_batches * batch_size_total]
