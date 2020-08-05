@@ -4,6 +4,29 @@ from torch import nn
 import torch.nn.functional as F
 from time import time
 
+def one_hot_encode(arr, n_chars):
+    """One hot encodes array
+
+    Args:
+        arr (array): Array to be encoded, must be and integer array with max int < n_chars
+        n_chars (int): number of characters encoded
+
+    Returns:
+        one_hot (array): one hot encoded array
+    """
+
+    # Initialize the the encoded array
+    one_hot = np.zeros((arr.size, n_chars), dtype=np.float32)
+
+    # Fill the appropriate elements with ones
+    one_hot[np.arange(one_hot.shape[0]), arr.flatten()] = 1.
+    
+    # Finally reshape it to get back to the original array
+    one_hot = one_hot.reshape((*arr.shape, n_chars))
+    
+    return one_hot
+
+
 class CharRNN(nn.Module):
     
     def __init__(self, tokens, n_hidden=256, n_layers=2,
@@ -17,7 +40,7 @@ class CharRNN(nn.Module):
         # creating character dictionaries
         self.chars = tokens
         self.int2char = dict(enumerate(self.chars))
-        self.char2int = {ch: ii for ii, ch in self.int2char.items()}
+        self.char2int = {ch: ii for ii, ch in self.int2char.items()} ##### can be inputted straight from data
         
         # define the LSTM
         self.lstm = nn.LSTM(len(self.chars), n_hidden, n_layers, 
@@ -99,10 +122,11 @@ def train(net, data, epochs=10, batch_size=10, seq_length=50, lr=0.001, clip=5, 
         # initialize hidden state
         h = net.init_hidden(batch_size)
         
-        for x, y in data.get_batches(batch_size = 8, seq_length = 50, one_hot = True, train_val = 'train', val_frac = val_frac):
+        for x, y in data.get_batches(batch_size = 8, seq_length = 50, train_val = 'train', val_frac = val_frac):
             counter += 1
             
-            # Make data Torch tensors
+            # One-hot encode our data and make them Torch tensors
+            x = one_hot_encode(x, n_chars)
             inputs, targets = torch.from_numpy(x), torch.from_numpy(y)
             
             if(torch.cuda.is_available()):
@@ -131,8 +155,9 @@ def train(net, data, epochs=10, batch_size=10, seq_length=50, lr=0.001, clip=5, 
                 val_h = net.init_hidden(batch_size)
                 val_losses = []
                 net.eval()
-                for x, y in data.get_batches(batch_size = 8, seq_length = 50, one_hot = True, train_val = 'validate', val_frac = val_frac):
-                    # Make them Torch tensors
+                for x, y in data.get_batches(batch_size = 8, seq_length = 50, train_val = 'validate', val_frac = val_frac):
+                    # One-hot encode our data and make them Torch tensors
+                    x = one_hot_encode(x, n_chars)
                     x, y = torch.from_numpy(x), torch.from_numpy(y)
                     
                     # Creating new variables for the hidden state, otherwise

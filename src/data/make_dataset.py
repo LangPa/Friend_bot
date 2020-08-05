@@ -88,35 +88,12 @@ class data():
         return self.encoded
 
 
-    def one_hot_encode(self, arr):
-        """One hot encodes array
-
-        Args:
-            arr (array): Array to be encoded, must be and integer array with values <= len(self.chars)
-
-        Returns:
-            one_hot (array): one hot encoded array
-        """
-
-        # Initialize the the encoded array
-        one_hot = np.zeros((arr.size, len(self.chars)), dtype=np.float32)
-
-        # Fill the appropriate elements with ones
-        one_hot[np.arange(one_hot.shape[0]), arr.flatten()] = 1.
-        
-        # Finally reshape it to get back to the original array
-        one_hot = one_hot.reshape((*arr.shape, len(self.chars)))
-        
-        return one_hot
-
-
-    def get_batches(self, batch_size, seq_length, one_hot = True, train_val = None, val_frac = 0.3):
+    def get_batches(self, batch_size, seq_length, train_val = None, val_frac = 0.3):
         """ Generates batch data
 
         Args:
             batch_size (int): Batch size, the number of sequences per batch
             seq_length (int): Number of encoded chars in a sequence
-            one_hot (bool): returns onehot encoded data
 
 
         Yields:
@@ -154,8 +131,5 @@ class data():
                 y[:, :-1], y[:, -1] = x[:, 1:], arr[:, n+seq_length]
             except IndexError:
                 y[:, :-1], y[:, -1] = x[:, 1:], arr[:, 0]
-
-            if one_hot:
-                yield self.one_hot_encode(x), self.one_hot_encode(y) 
-            else:
-                yield x, y
+            
+            yield x, y
