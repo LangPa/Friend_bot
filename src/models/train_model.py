@@ -122,7 +122,7 @@ def train(net, data, epochs=10, batch_size=10, seq_length=50, lr=0.001, clip=5, 
         # initialize hidden state
         h = net.init_hidden(batch_size)
         
-        for x, y in data.get_batches(batch_size = 8, seq_length = 50, train_val = 'train', val_frac = val_frac):
+        for x, y in data.get_batches(batch_size = batch_size, seq_length = seq_length, train_val = 'train', val_frac = val_frac):
             counter += 1
             
             # One-hot encode our data and make them Torch tensors
@@ -155,7 +155,7 @@ def train(net, data, epochs=10, batch_size=10, seq_length=50, lr=0.001, clip=5, 
                 val_h = net.init_hidden(batch_size)
                 val_losses = []
                 net.eval()
-                for x, y in data.get_batches(batch_size = 8, seq_length = 50, train_val = 'validate', val_frac = val_frac):
+                for x, y in data.get_batches(batch_size = batch_size, seq_length = seq_length, train_val = 'validate', val_frac = val_frac):
                     # One-hot encode our data and make them Torch tensors
                     x = one_hot_encode(x, n_chars)
                     x, y = torch.from_numpy(x), torch.from_numpy(y)

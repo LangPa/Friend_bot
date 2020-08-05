@@ -115,9 +115,11 @@ class data():
 
         # selecting train or validate data
         if train_val == 'train':
-            start, finish = 0, batch_size * int(arr.shape[1]/batch_size * (1 - val_frac))
+            start, finish = 0, seq_length * int(arr.shape[1]/seq_length * (1 - val_frac))
+            print('training', start, finish)
         elif train_val == 'validate':
-            start, finish = batch_size * int(arr.shape[1]/batch_size * (1 - val_frac)), arr.shape[1]
+            start, finish = seq_length * int(arr.shape[1]/seq_length * (1 - val_frac)), arr.shape[1]
+            print('validating', start, finish)
         else:
             start, finish = 0, arr.shape[1]
 
