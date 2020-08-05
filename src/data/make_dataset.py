@@ -110,7 +110,7 @@ class data():
         return one_hot
 
 
-    def get_batches(self, batch_size, seq_length, one_hot = True):
+    def get_batches(self, batch_size, seq_length, one_hot = True, train_val = None, val_frac = 0.3):
         """ Generates batch data
 
         Args:
@@ -136,8 +136,16 @@ class data():
         # Reshape into batch_size rows
         arr = arr.reshape((batch_size, -1))
 
+        # selecting train or validate data
+        if train_val == 'train':
+            start, finish = 0, batch_size * int(arr.shape[1]/batch_size * (1 - val_frac))
+        elif train_val == 'validate':
+            start, finish = batch_size * int(arr.shape[1]/batch_size * (1 - val_frac)), arr.shape[1]
+        else:
+            start, finish = 0, arr.shape[1]
+
         # iterate through the array, one sequence at a time
-        for n in range(0, arr.shape[1], seq_length):
+        for n in range(start, finish, seq_length):
             # The features
             x = arr[:, n:n+seq_length]
             # The targets, shifted by one
