@@ -3,6 +3,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from time import time
+from pathlib import Path
 
 def one_hot_encode(arr, n_chars):
     """One hot encodes array
@@ -180,3 +181,39 @@ def train(net, data, epochs=10, batch_size=10, seq_length=50, lr=0.001, clip=5, 
                       "Loss: {:.4f}...".format(loss.item()),
                       "Val Loss: {:.4f}".format(np.mean(val_losses)),
                       "time: {:.1f}".format(time() - t0))
+
+def save(net, name, loc = 'models'):
+    """ Saves model
+
+    Args:
+        net: CharRNN model
+        name (str): Save file name
+        loc: save location
+
+    """
+    model_name = name + '.net'
+    path = Path(loc) / Path(model_name)
+
+    checkpoint = {'n_hidden': net.n_hidden,
+                'n_layers': net.n_layers,
+                'state_dict': net.state_dict(),
+                'tokens': net.chars}
+
+    with open(path, 'wb') as f:
+        torch.save(checkpoint, f)
+
+def load(file_path):
+    """ Loads previously saved model
+
+    Args:
+        file_path: filepath to saved model
+
+    Returns:
+        model: CharrRNN model
+    """
+    with open(file_path, 'rb') as f:
+        checkpoint = torch.load(f)
+    
+    loaded = CharRNN(checkpoint['tokens'], n_hidden=checkpoint['n_hidden'], n_layers=checkpoint['n_layers'])
+    loaded.load_state_dict(checkpoint['state_dict'])
+    return loaded
