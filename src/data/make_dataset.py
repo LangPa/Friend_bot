@@ -5,6 +5,42 @@ import json
 import numpy as np
 import io
 
+def extract(input_filepath, output_filepath = 'data'):
+    """Concatinates and saves message data taken from single chat
+
+    Args:
+        input_filepath (str): filepath to directory containing messages
+        output_filepath (str): Save location
+
+    """
+    input_filepath = Path(input_filepath)
+    message_files = input_filepath.glob('message_*.JSON')
+    messages = []
+    for message_file in message_files:
+        json_file = open(message_file, "r", encoding='utf-8')
+        # jdict = json.load(json_file)  ## TEST TO SEE IF MODIFYING WORKS
+        # messages += jdict['messages']
+        messages += json.load(json_file)['messages']                
+        json_file.close()
+
+    # Create dictionary of participants continuous chat 
+    message_content_dict = {}
+
+    for message in messages:
+        if 'content' in message:
+            message_content_dict[message['sender_name']] = message_content_dict.get(message['sender_name'], '') + message['content'].encode('latin1').decode('utf8') + '\n'
+
+    # write data to file, separated by participants
+    path = Path(output_filepath) / input_filepath.stem
+    if not os.path.exists(path):
+        path.mkdir()
+
+    for participant in message_content_dict:
+        with io.open(str(path / participant.replace(' ','_')) + '_messages.txt', 'w', encoding = 'utf-8') as out_file:
+            out_file.write(message_content_dict[participant])
+
+
+
 class data():
     """Returns batch data for a single facebook user in a messenger chat.
 
@@ -20,7 +56,7 @@ class data():
         input_filepath (str): input filepath to raw messenger data.
         output_filepath (str): Destination of processed data
     """
-    def __init__(self, input_filepath = None, output_filepath = 'data/processed'):
+    def __init__(self):
         
         self.friend = None
         self.chars = None
@@ -28,37 +64,8 @@ class data():
         self.char_to_int = None
         self.data_loc = None
         self.encoded = None
-
-        if input_filepath:
-            message_files = Path(input_filepath).glob('message_*.JSON')
-            messages = []
-            for message_file in message_files:
-                json_file = open(message_file, "r", encoding='utf-8')
-                # jdict = json.load(json_file)  ## TEST TO SEE IF MODIFYING WORKS
-                # messages += jdict['messages']
-                messages += json.load(json_file)['messages']                
-                json_file.close()
-
-            # Create dictionary of participants continuous chat 
-            message_content_dict = {}
-
-            for message in messages:
-                if 'content' in message:
-                    message_content_dict[message['sender_name']] = message_content_dict.get(message['sender_name'], '') + message['content'].encode('latin1').decode('utf8') + '\n'
-
-            # write data to file, separated by participants
-            path = Path(output_filepath) / input_filepath.split('/')[-1]
-            if not os.path.exists(path):
-                path.mkdir()
-
-            for participant in message_content_dict:
-                with io.open(str(path / participant.replace(' ','_')) + '_messages.txt', 'w', encoding = 'utf-8') as out_file:
-                    out_file.write(message_content_dict[participant])
-
-            self.data_loc = path
-        
-        
-    def encode(self, input_filepath = ''):
+                
+    def encode(self, input_filepath):
         """ encodes data
 
         Args:
@@ -67,19 +74,12 @@ class data():
         Returns:
             encoded (str): encoded text
         """
-        try:
-            f = io.open(input_filepath, 'r', encoding='utf-8')
-            text = f.read()
-            f.close()
-        except:
-            if self.data_loc:
-                print(f'no / incorrect file found at {input_filepath}\nTry input_filepath =')
-                for path in os.listdir(self.data_loc):
-                    print(self.data_loc / path)
-            else:
-                print('Please enter a input filepath in the data_loc attribute')
-            return None
+        
+        f = io.open(input_filepath, 'r', encoding='utf-8')
+        text = f.read()
+        f.close()
 
+        self.data_loc = input_filepath
         self.chars = tuple(set(text))
         self.int_to_char = dict(enumerate(self.chars))
         self.char_to_int = {ch: ii for ii, ch in self.int_to_char.items()}
@@ -116,10 +116,10 @@ class data():
         # selecting train or validate data
         if train_val == 'train':
             start, finish = 0, seq_length * int(arr.shape[1]/seq_length * (1 - val_frac))
-            print('training', start, finish)
+            # print('training', start, finish)
         elif train_val == 'validate':
             start, finish = seq_length * int(arr.shape[1]/seq_length * (1 - val_frac)), arr.shape[1]
-            print('validating', start, finish)
+            # print('validating', start, finish)
         else:
             start, finish = 0, arr.shape[1]
 
