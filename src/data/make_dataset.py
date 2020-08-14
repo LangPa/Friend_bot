@@ -45,7 +45,6 @@ class data():
     """Returns batch data for a single facebook user in a messenger chat.
 
     Attributes:
-        friend (str): sender_name of persons messsenger data.
         char (tuple): all characters appearing in text
         int_to_char (dict): integer to character encoding dictionary
         char_to_int (dict): character to integer encoding dicitonary
@@ -57,8 +56,7 @@ class data():
         output_filepath (str): Destination of processed data
     """
     def __init__(self):
-        
-        self.friend = None
+
         self.chars = None
         self.int_to_char = None
         self.char_to_int = None
